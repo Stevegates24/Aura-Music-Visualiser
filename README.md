@@ -1,7 +1,7 @@
 # 🎵 Aura — Music Visualizer Chrome Extension
 
 A premium, aesthetic music visualizer that reacts to any audio playing in your browser tabs.
-
+**[→ Visit the extension webpage](https://stevegates24.github.io/Aura-Music-Visualiser/)**
 ---
 
 ## ✨ Presets
