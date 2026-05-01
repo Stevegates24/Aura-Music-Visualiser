@@ -226,7 +226,8 @@ nav {
 
 /* Scroll indicator */
 .scroll-hint {
-  position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
+  position: relative;
+  min-height: 100vh; bottom: 36px; left: 50%; transform: translateX(-50%);
   display: flex; flex-direction: column; align-items: center; gap: 8px;
   opacity: 0.35; animation: fadeUp 1s 1.2s both;
 }
@@ -581,9 +582,7 @@ footer {
   </div>
 
   <div class="scroll-hint">
-    <br><br>
-    <br><br>
-
+    
     <span>Scroll</span>
     <div class="scroll-line"></div>
   </div>
