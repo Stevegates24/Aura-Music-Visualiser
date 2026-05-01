@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aura — Visualizer</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%237c3aed'/><stop offset='1' stop-color='%23f472b6'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='url(%23g)'/><path d='M5 16 Q8 10 11 16 Q14 22 17 16 Q20 10 23 16 Q26 22 27 16' stroke='white' stroke-width='2' fill='none' stroke-linecap='round'/></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 100%; height: 100%; overflow: hidden; }
@@ -16,132 +17,130 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 }
 body { background: var(--bg); font-family: 'Syne', sans-serif; color: var(--txt); user-select: none; }
 
-#cursor {
-  position: fixed; top: 0; left: 0; z-index: 9999;
-  width: 8px; height: 8px; border-radius: 50%; background: var(--p);
-  pointer-events: none; mix-blend-mode: screen;
-}
-#cursor-ring {
-  position: fixed; top: 0; left: 0; z-index: 9998;
-  width: 32px; height: 32px; border-radius: 50%;
-  border: 1px solid rgba(167,139,250,0.35); pointer-events: none;
-}
-body::before {
-  content: ''; position: fixed; inset: 0; z-index: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
-  opacity: 0.025; pointer-events: none;
-}
 #vizCanvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 1; }
 
+/* UI overlay */
 .ui {
   position: fixed; inset: 0; z-index: 10; pointer-events: none;
-  display: flex; flex-direction: column; justify-content: space-between; padding: 28px 36px;
+  display: flex; flex-direction: column; justify-content: space-between; padding: 22px 28px;
 }
+
+/* Top bar */
 .topbar { display: flex; align-items: center; justify-content: space-between; pointer-events: auto; }
-.logo { display: flex; align-items: center; gap: 10px; opacity: 0.9; }
+
+.logo { display: flex; align-items: center; gap: 9px; opacity: 0.85; }
 .logo-icon {
-  width: 28px; height: 28px; background: linear-gradient(135deg, var(--p2), #4c1d95);
+  width: 26px; height: 26px; background: linear-gradient(135deg, var(--p2), #4c1d95);
   border-radius: 7px; display: flex; align-items: center; justify-content: center;
-  border: 1px solid rgba(167,139,250,0.25); box-shadow: 0 0 14px rgba(109,40,217,0.35);
+  border: 1px solid rgba(167,139,250,0.25); box-shadow: 0 0 12px rgba(109,40,217,0.35);
 }
 .logo-name {
-  font-size: 14px; font-weight: 800; letter-spacing: 2px;
+  font-size: 13px; font-weight: 800; letter-spacing: 2px;
   background: linear-gradient(135deg, var(--p) 0%, var(--ind) 60%, var(--pink) 100%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
+
 .controls-pill {
-  display: flex; background: rgba(6,4,15,0.7); border: 1px solid var(--bdr);
-  border-radius: 100px; backdrop-filter: blur(20px); padding: 4px; pointer-events: auto;
+  display: flex; background: rgba(6,4,15,0.65); border: 1px solid var(--bdr);
+  border-radius: 100px; backdrop-filter: blur(20px); padding: 3px; gap: 0;
 }
 .ctrl-btn {
-  padding: 7px 16px; border-radius: 100px; border: none; background: transparent;
-  color: var(--txt2); font-family: 'DM Mono', monospace; font-size: 10px;
-  letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; transition: all 0.2s;
+  padding: 6px 13px; border-radius: 100px; border: none; background: transparent;
+  color: var(--txt2); font-family: 'DM Mono', monospace; font-size: 9.5px;
+  letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer; transition: all 0.18s;
+  white-space: nowrap;
 }
 .ctrl-btn:hover { color: var(--txt); }
 .ctrl-btn.active {
   background: linear-gradient(135deg, var(--p2), #4c1d95);
-  color: var(--txt); box-shadow: 0 0 16px rgba(109,40,217,0.4);
+  color: var(--txt); box-shadow: 0 0 14px rgba(109,40,217,0.4);
 }
-.bottombar { display: flex; align-items: center; justify-content: space-between; pointer-events: auto; }
-.status-badge {
-  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
-  background: rgba(6,4,15,0.7); border: 1px solid var(--bdr); border-radius: 100px;
-  backdrop-filter: blur(20px); font-family: 'DM Mono', monospace; font-size: 10px;
-  color: var(--txt2); letter-spacing: 0.5px;
+
+.right-btns { display: flex; align-items: center; gap: 8px; }
+
+.icon-pill {
+  display: flex; align-items: center; gap: 6px; padding: 7px 13px;
+  background: rgba(6,4,15,0.65); border: 1px solid var(--bdr); border-radius: 100px;
+  backdrop-filter: blur(20px); color: var(--txt2); font-family: 'DM Mono', monospace;
+  font-size: 9px; letter-spacing: 0.5px; cursor: pointer; transition: all 0.18s;
+  text-transform: uppercase;
 }
-.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--grn); animation: sdp 2s ease-in-out infinite; }
-.status-dot.idle { background: rgba(255,255,255,0.2); animation: none; }
-@keyframes sdp { 0%,100%{opacity:1} 50%{opacity:0.4} }
-.metrics {
-  display: flex; gap: 20px; padding: 10px 20px;
-  background: rgba(6,4,15,0.7); border: 1px solid var(--bdr);
-  border-radius: 100px; backdrop-filter: blur(20px);
+.icon-pill:hover { border-color: rgba(167,139,250,0.4); color: var(--p); }
+
+/* Middle: sens controls */
+.middle-layer {
+  display: flex; justify-content: flex-end; align-items: center; pointer-events: none;
 }
-.metric { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.metric-val {
-  font-size: 14px; font-weight: 700;
-  background: linear-gradient(135deg, var(--p), var(--pink));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-}
-.metric-lbl { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--txt2); letter-spacing: 1px; text-transform: uppercase; }
-.side-controls {
-  display: flex; flex-direction: column; align-items: center; gap: 12px;
-  padding: 14px 10px; background: rgba(6,4,15,0.7); border: 1px solid var(--bdr);
+.sens-pill {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 10px 8px; background: rgba(6,4,15,0.65); border: 1px solid var(--bdr);
   border-radius: 100px; backdrop-filter: blur(20px); pointer-events: auto;
 }
-.icon-btn {
-  width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--bdr);
+.sens-btn {
+  width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--bdr);
   background: transparent; color: var(--txt2); display: flex; align-items: center;
-  justify-content: center; cursor: pointer; transition: all 0.2s; font-size: 16px; font-weight: 300;
+  justify-content: center; cursor: pointer; transition: all 0.18s; font-size: 15px; line-height: 1;
 }
-.icon-btn:hover { border-color: rgba(167,139,250,0.4); color: var(--p); background: rgba(167,139,250,0.08); }
-.sens-label {
-  font-family: 'DM Mono', monospace; font-size: 9px; color: var(--txt2);
-  letter-spacing: 1px; writing-mode: vertical-rl; text-orientation: mixed;
-  transform: rotate(180deg); text-transform: uppercase;
+.sens-btn:hover { border-color: rgba(167,139,250,0.4); color: var(--p); background: rgba(167,139,250,0.07); }
+.sens-lbl {
+  font-family: 'DM Mono', monospace; font-size: 8px; color: var(--txt2);
+  writing-mode: vertical-rl; transform: rotate(180deg); text-transform: uppercase; letter-spacing: 1px;
 }
-.fullscreen-btn {
-  display: flex; align-items: center; gap: 7px; padding: 8px 16px; border-radius: 100px;
-  border: 1px solid var(--bdr); background: rgba(6,4,15,0.7); backdrop-filter: blur(20px);
-  color: var(--txt2); font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.5px;
-  cursor: pointer; transition: all 0.2s; text-transform: uppercase; pointer-events: auto;
-}
-.fullscreen-btn:hover { border-color: rgba(167,139,250,0.4); color: var(--p); }
 
+/* Bottom bar */
+.bottombar { display: flex; align-items: flex-end; justify-content: space-between; pointer-events: auto; }
+
+/* Now playing badge */
+.now-playing {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  background: rgba(6,4,15,0.7); border: 1px solid var(--bdr); border-radius: 100px;
+  backdrop-filter: blur(20px); max-width: 380px;
+}
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--grn);
+  animation: sdp 2s ease-in-out infinite; flex-shrink: 0;
+}
+.status-dot.idle { background: rgba(255,255,255,0.2); animation: none; }
+@keyframes sdp { 0%,100%{opacity:1} 50%{opacity:0.35} }
+.track-info { display: flex; flex-direction: column; gap: 1px; }
+.track-label { font-family: 'DM Mono', monospace; font-size: 8px; color: var(--txt2); letter-spacing: 1px; text-transform: uppercase; }
+.track-title { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--txt); letter-spacing: 0.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
+
+/* No media overlay */
 #noMediaMsg {
   position: fixed; inset: 0; z-index: 20; display: none;
   flex-direction: column; align-items: center; justify-content: center;
-  gap: 20px; background: var(--bg); text-align: center; padding: 40px;
+  gap: 18px; background: var(--bg); text-align: center; padding: 40px;
 }
 #noMediaMsg.show { display: flex; }
-.no-media-icon { font-size: 56px; opacity: 0.3; animation: float 3s ease-in-out infinite; }
-@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+.no-media-icon { font-size: 48px; opacity: 0.25; animation: float 3s ease-in-out infinite; }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
 .no-media-title {
-  font-size: 24px; font-weight: 800; letter-spacing: -0.5px;
+  font-size: 22px; font-weight: 800;
   background: linear-gradient(135deg, var(--p), var(--pink));
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
-.no-media-sub { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--txt2); font-style: italic; max-width: 360px; line-height: 1.6; }
+.no-media-sub { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--txt2); font-style: italic; max-width: 340px; line-height: 1.6; }
 .retry-btn {
-  padding: 10px 24px; border-radius: 100px; border: 1px solid rgba(167,139,250,0.3);
+  padding: 9px 22px; border-radius: 100px; border: 1px solid rgba(167,139,250,0.3);
   background: linear-gradient(135deg,#7c3aed,#4c1d95); color: #ede9fe;
-  font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer;
+  font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer;
   transition: all 0.2s;
 }
 .retry-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(109,40,217,0.5); }
 
 #presetFlash {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
-  z-index: 30; font-size: 48px; font-weight: 800; letter-spacing: -1px;
+  z-index: 30; font-size: 44px; font-weight: 800; letter-spacing: -1px;
   background: linear-gradient(135deg, var(--p), var(--pink));
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
   opacity: 0; pointer-events: none;
 }
+/* hidden cursor/ring divs */
+#cursor, #cursor-ring { display: none; }
 </style>
 </head>
 <body>
-
 <div id="cursor" style="display:none"></div>
 <div id="cursor-ring" style="display:none"></div>
 <canvas id="vizCanvas"></canvas>
@@ -150,15 +149,16 @@ body::before {
 <div id="noMediaMsg">
   <div class="no-media-icon">🎵</div>
   <div class="no-media-title">No audio detected</div>
-  <div class="no-media-sub" id="noMediaDetail">Play music in another tab (YouTube, Spotify Web, SoundCloud…) then click Retry.</div>
+  <div class="no-media-sub" id="noMediaDetail">Play music in another tab then click Retry.</div>
   <button class="retry-btn" id="retryBtn">Retry</button>
 </div>
 
 <div class="ui">
+  <!-- Top -->
   <div class="topbar">
     <div class="logo">
       <div class="logo-icon">
-        <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
+        <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
           <path d="M9 1L16 5V13L9 17L2 13V5L9 1Z" fill="rgba(109,40,217,0.3)" stroke="rgba(167,139,250,0.5)" stroke-width="1"/>
           <circle cx="9" cy="9" r="1.8" fill="rgba(167,139,250,0.9)"/>
         </svg>
@@ -166,42 +166,44 @@ body::before {
       <div class="logo-name">AURA</div>
     </div>
 
-    <div class="controls-pill" id="presetPill">
+    <div class="controls-pill">
       <button class="ctrl-btn active" data-preset="waves">Waves</button>
       <button class="ctrl-btn" data-preset="bars">Bars</button>
       <button class="ctrl-btn" data-preset="nebula">Nebula</button>
       <button class="ctrl-btn" data-preset="orbit">Orbit</button>
       <button class="ctrl-btn" data-preset="aurora">Aurora</button>
       <button class="ctrl-btn" data-preset="ribbon">Ribbon</button>
+      <button class="ctrl-btn" data-preset="buddha">☸ Buddha</button>
     </div>
 
-    <button class="fullscreen-btn" id="fsBtn">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="15,3 21,3 21,9"/><polyline points="9,21 3,21 3,15"/>
-        <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
-      </svg>
-      Fullscreen
-    </button>
-  </div>
-
-  <div style="display:flex; justify-content:flex-end; align-items:center; pointer-events:none;">
-    <div class="side-controls">
-      <button class="icon-btn" id="sensUp">+</button>
-      <div class="sens-label">Sens</div>
-      <button class="icon-btn" id="sensDown">−</button>
+    <div class="right-btns">
+      <button class="icon-pill" id="fsBtn">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15,3 21,3 21,9"/><polyline points="9,21 3,21 3,15"/>
+          <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+        </svg>
+        Fullscreen
+      </button>
     </div>
   </div>
 
+  <!-- Middle: sensitivity -->
+  <div class="middle-layer">
+    <div class="sens-pill">
+      <button class="sens-btn" id="sensUp">+</button>
+      <div class="sens-lbl">Sens</div>
+      <button class="sens-btn" id="sensDown">−</button>
+    </div>
+  </div>
+
+  <!-- Bottom: now playing -->
   <div class="bottombar">
-    <div class="status-badge">
+    <div class="now-playing">
       <div class="status-dot idle" id="statusDot"></div>
-      <span id="statusText">Connecting…</span>
-    </div>
-    <div class="metrics">
-      <div class="metric"><div class="metric-val" id="mBass">—</div><div class="metric-lbl">Bass</div></div>
-      <div class="metric"><div class="metric-val" id="mMid">—</div><div class="metric-lbl">Mid</div></div>
-      <div class="metric"><div class="metric-val" id="mHigh">—</div><div class="metric-lbl">High</div></div>
-      <div class="metric"><div class="metric-val" id="mVol">—</div><div class="metric-lbl">Vol</div></div>
+      <div class="track-info">
+        <div class="track-label" id="trackLabel">Connecting…</div>
+        <div class="track-title" id="statusText"></div>
+      </div>
     </div>
   </div>
 </div>

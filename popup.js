@@ -1,85 +1,69 @@
-// popup.js — Aura v2
+// popup.js — Aura v4
 
-// ── Mini wave animation ──────────────────────────────
-const canvas = document.getElementById('miniWave');
-const ctx = canvas.getContext('2d');
+// Mini wave
+const canvas = document.getElementById('wc');
+const ctx2 = canvas.getContext('2d');
 let t = 0;
+function resizeC() { canvas.width = canvas.offsetWidth*devicePixelRatio; canvas.height = canvas.offsetHeight*devicePixelRatio; }
+resizeC();
 
-function resizeCanvas() {
-  canvas.width  = canvas.offsetWidth  * devicePixelRatio;
-  canvas.height = canvas.offsetHeight * devicePixelRatio;
-}
-resizeCanvas();
-
-function drawMiniWave() {
-  const w = canvas.width, h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
-  const waves = [
-    { amp: 0.30, freq: 0.018, speed: 0.014, color: 'rgba(124,58,237,0.45)',  phase: 0   },
-    { amp: 0.20, freq: 0.027, speed: 0.021, color: 'rgba(167,139,250,0.30)', phase: 1.5 },
-    { amp: 0.13, freq: 0.040, speed: 0.029, color: 'rgba(244,114,182,0.22)', phase: 3.0 },
-  ];
-  waves.forEach(wv => {
-    ctx.beginPath();
-    for (let x = 0; x <= w; x++) {
-      const y = h / 2
-        + Math.sin(x * wv.freq + t * wv.speed + wv.phase) * h * wv.amp
-        + Math.sin(x * wv.freq * 2.1 + t * wv.speed * 1.6 + wv.phase) * h * wv.amp * 0.22;
-      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+function drawWave() {
+  const w=canvas.width, h=canvas.height;
+  ctx2.clearRect(0,0,w,h);
+  [{amp:.28,fr:.017,sp:.013,col:'rgba(124,58,237,0.42)',ph:0},
+   {amp:.19,fr:.026,sp:.020,col:'rgba(167,139,250,0.28)',ph:1.5},
+   {amp:.12,fr:.038,sp:.028,col:'rgba(244,114,182,0.20)',ph:3}
+  ].forEach(v=>{
+    ctx2.beginPath();
+    for(let x=0;x<=w;x++){
+      const y=h/2+Math.sin(x*v.fr+t*v.sp+v.ph)*h*v.amp+Math.sin(x*v.fr*2.1+t*v.sp*1.6+v.ph)*h*v.amp*.22;
+      x===0?ctx2.moveTo(x,y):ctx2.lineTo(x,y);
     }
-    ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
-    const g = ctx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, wv.color); g.addColorStop(1, 'transparent');
-    ctx.fillStyle = g; ctx.fill();
+    ctx2.lineTo(w,h);ctx2.lineTo(0,h);ctx2.closePath();
+    const g=ctx2.createLinearGradient(0,0,0,h);
+    g.addColorStop(0,v.col);g.addColorStop(1,'transparent');
+    ctx2.fillStyle=g;ctx2.fill();
   });
   t++;
-  requestAnimationFrame(drawMiniWave);
+  requestAnimationFrame(drawWave);
 }
-drawMiniWave();
+drawWave();
 
-// ── Preset selection ─────────────────────────────────
-let selectedPreset = 'waves';
-document.querySelectorAll('.preset-chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-    selectedPreset = chip.dataset.preset;
+// Preset selection
+let sel = 'waves';
+document.querySelectorAll('.chip').forEach(c=>{
+  c.addEventListener('click',()=>{
+    document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));
+    c.classList.add('active');
+    sel = c.dataset.p;
   });
 });
 
-// ── Media check ──────────────────────────────────────
-async function checkMedia() {
-  const dot = document.getElementById('statusDot');
-  const txt = document.getElementById('statusText');
+// Media check
+async function check() {
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
     if (!tab) return;
-
-    // Simple heuristic: tab is audible or title suggests media
+    const dot = document.getElementById('sd');
+    const txt = document.getElementById('st');
     if (tab.audible) {
-      dot.classList.remove('no-media');
-      txt.textContent = 'Audio playing — ready';
+      dot.classList.remove('idle');
+      // Show shortened tab title
+      let title = (tab.title||'').replace(/ - YouTube$/,'').replace(/ \| Spotify.*/,'').trim();
+      txt.textContent = title.length>30 ? title.slice(0,28)+'…' : (title||'Audio playing');
     } else {
-      dot.classList.add('no-media');
-      txt.textContent = 'No audio detected in tab';
+      dot.classList.add('idle');
+      txt.textContent = 'No audio in this tab';
     }
-  } catch (e) {
-    txt.textContent = 'Could not access tab';
-  }
+  } catch(e) { document.getElementById('st').textContent = 'Cannot access tab'; }
 }
-checkMedia();
+check();
 
-// ── Launch ───────────────────────────────────────────
-document.getElementById('launchBtn').addEventListener('click', async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+// Launch
+document.getElementById('lb').addEventListener('click', async ()=>{
+  const [tab] = await chrome.tabs.query({active:true,currentWindow:true});
   if (!tab) return;
-
-  const btn = document.getElementById('launchBtn');
-  btn.textContent = 'Opening…';
-  btn.style.opacity = '0.7';
-
-  chrome.runtime.sendMessage(
-    { type: 'OPEN_VISUALIZER', tabId: tab.id, preset: selectedPreset },
-    () => { window.close(); }
-  );
+  const btn = document.getElementById('lb');
+  btn.textContent = 'Opening…'; btn.style.opacity='0.7';
+  chrome.runtime.sendMessage({type:'OPEN_VISUALIZER', tabId:tab.id, preset:sel}, ()=>window.close());
 });

@@ -54,7 +54,24 @@ function amp(i)  { return isLive ? (smoothed[i]||0) : demo(i); }
 // ── Status helpers ───────────────────────────────────
 function setStatus(live, text) {
   document.getElementById('statusDot').classList.toggle('idle', !live);
-  document.getElementById('statusText').textContent = text;
+  const label = document.getElementById('trackLabel');
+  if (label) label.textContent = live ? 'Now Playing' : text;
+  if (!live) document.getElementById('statusText').textContent = '';
+}
+async function updateTrackTitle() {
+  try {
+    const stored = await chrome.storage.session.get(['sourceTabId']);
+    if (!stored.sourceTabId) return;
+    const tab = await chrome.tabs.get(stored.sourceTabId);
+    if (tab && tab.title) {
+      let title = tab.title
+        .replace(/ - YouTube$/, '')
+        .replace(/ \| Spotify.*$/, '')
+        .replace(/ - SoundCloud$/, '')
+        .trim();
+      document.getElementById('statusText').textContent = title.length > 50 ? title.slice(0,48)+'…' : title;
+    }
+  } catch(e) {}
 }
 function showError(msg) {
   isLive = false;
@@ -90,6 +107,7 @@ async function startCapture(streamId) {
 
     isLive = true;
     setStatus(true, 'Live');
+    updateTrackTitle();
     document.getElementById('noMediaMsg').classList.remove('show');
 
   } catch (err) {
@@ -570,20 +588,19 @@ function drawOrbit() {
 }
 
 // ══════════════════════════════════════════════════════
-//  AURORA — curtains, skip frame for strips
+//  AURORA — original column-based curtains (the good one!)
 // ══════════════════════════════════════════════════════
-let aurStars = null; // cached offscreen star layer
+let aurStars = null;
 
 function ensureStars() {
   if (aurStars) return;
-  // Draw stars to an offscreen canvas once
-  const oc  = new OffscreenCanvas(W, H);
+  const oc = new OffscreenCanvas(W, H);
   const oc2 = oc.getContext('2d');
   oc2.fillStyle = '#010107'; oc2.fillRect(0,0,W,H);
-  for (let i=0; i<160; i++) {
+  for (let i=0;i<160;i++) {
     oc2.beginPath();
     oc2.arc(Math.random()*W, Math.random()*H*0.65, Math.random()*devicePixelRatio*0.8, 0, Math.PI*2);
-    oc2.fillStyle = `rgba(255,255,255,${0.15+Math.random()*0.4})`; oc2.fill();
+    oc2.fillStyle=`rgba(255,255,255,${0.15+Math.random()*0.4})`; oc2.fill();
   }
   aurStars = oc;
 }
@@ -599,41 +616,43 @@ function drawAurora() {
   ensureStars();
   ctx.drawImage(aurStars, 0, 0);
 
-  const b=bass(),m=mid(),v=vol();
-  const STRIPS = 60; // down from 70
+  const b=bass(), m=mid(), v=vol();
+  const STRIPS = 60;
 
-  AUR_CURTAINS.forEach((c,ci) => {
+  AUR_CURTAINS.forEach((c, ci) => {
     const be = bandE(ci*35, ci*35+35);
-    const cH = (c.bh + be*0.20 + v*0.07)*H;
+    const cH = (c.bh + be*0.20 + v*0.08)*H;
     const topY = c.y*H;
+
     for (let si=0; si<=STRIPS; si++) {
       const nx = si/STRIPS, px = nx*W;
-      const woff = Math.sin(nx*6.5+tick*c.spd*0.008+c.ph)*cH*0.26
-                 + Math.sin(nx*2.5+tick*c.spd*0.005+c.ph*0.7)*cH*0.12
+      const woff = Math.sin(nx*6.5 + tick*c.spd*0.008 + c.ph)*cH*0.28
+                 + Math.sin(nx*2.8 + tick*c.spd*0.005 + c.ph*0.7)*cH*0.13
                  + amp(Math.floor(nx*240))*cH*0.33;
       const sY = topY+woff;
       const sH = cH*(0.56+Math.sin(nx*4+tick*0.006+c.ph)*0.36);
       const hue = c.h0+(c.h1-c.h0)*nx+Math.sin(tick*0.016+ci)*16;
       const a   = 0.065+be*0.10+Math.sin(nx*3+tick*0.012+c.ph)*0.032;
-      const ag  = ctx.createLinearGradient(px,sY,px,sY+sH);
+
+      const ag = ctx.createLinearGradient(px, sY, px, sY+sH);
       ag.addColorStop(0,    hsl(hue,76+be*16,52+be*12,0));
       ag.addColorStop(0.18, hsl(hue,76+be*16,52+be*12,a*1.8));
       ag.addColorStop(0.42, hsl(hue,76+be*16,62+be*12,a));
       ag.addColorStop(0.72, hsl(hue,76+be*16,52+be*12,a*0.5));
       ag.addColorStop(1,    hsl(hue,76+be*16,52+be*12,0));
-      ctx.fillStyle=ag; ctx.fillRect(px,sY,W/STRIPS+1,sH);
+      ctx.fillStyle=ag; ctx.fillRect(px, sY, W/STRIPS+1, sH);
     }
   });
 
-  // ground + horizon
+  // Ground + horizon
   const gg=ctx.createLinearGradient(0,H*0.67,0,H);
   gg.addColorStop(0,'transparent'); gg.addColorStop(1,`rgba(8,40,18,${0.15+v*0.16})`);
   ctx.fillStyle=gg; ctx.fillRect(0,0,W,H);
-  const hg=ctx.createLinearGradient(0,H*0.65,0,H*0.72);
-  hg.addColorStop(0,'transparent'); hg.addColorStop(0.5,`rgba(40,185,120,${0.08+m*0.15})`); hg.addColorStop(1,'transparent');
-  ctx.fillStyle=hg; ctx.fillRect(0,H*0.65,W,H*0.07);
+  const horiG=ctx.createLinearGradient(0,H*0.65,0,H*0.72);
+  horiG.addColorStop(0,'transparent'); horiG.addColorStop(0.5,`rgba(40,185,120,${0.08+m*0.15})`); horiG.addColorStop(1,'transparent');
+  ctx.fillStyle=horiG; ctx.fillRect(0,H*0.65,W,H*0.07);
 
-  // vignettes
+  // Vignettes
   const tv=ctx.createLinearGradient(0,0,0,H*0.13);
   tv.addColorStop(0,'rgba(1,1,7,0.9)'); tv.addColorStop(1,'transparent');
   ctx.fillStyle=tv; ctx.fillRect(0,0,W,H);
@@ -642,18 +661,229 @@ function drawAurora() {
   ctx.fillStyle=bv; ctx.fillRect(0,0,W,H);
 }
 
-// ── Metrics ──────────────────────────────────────────
-function updateMetrics() {
-  const p = v => Math.round(v*100)+'%';
-  document.getElementById('mBass').textContent = p(bass());
-  document.getElementById('mMid').textContent  = p(mid());
-  document.getElementById('mHigh').textContent = p(high());
-  document.getElementById('mVol').textContent  = p(vol());
+
+// ══════════════════════════════════════════════════════
+//  BUDDHA — lotus petals behind, clean silhouette, warm aura
+// ══════════════════════════════════════════════════════
+
+function drawLotus(cx, cy, s, petalColor, petalAlpha, petalCount, innerRatio) {
+  // Draw a ring of rounded lotus petals
+  for (let i = 0; i < petalCount; i++) {
+    const angle = (i / petalCount) * Math.PI * 2 - Math.PI / 2;
+    const pr = s * 0.48; // petal reach from center
+    const pw = s * 0.22; // petal width
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
+    ctx.beginPath();
+    // Petal: narrow at base, wide in middle, taper at tip
+    ctx.moveTo(0, -s * innerRatio);
+    ctx.bezierCurveTo( pw*0.5, -s*innerRatio - pr*0.3,
+                        pw*0.6, -s*innerRatio - pr*0.7,
+                        0,      -s*innerRatio - pr);
+    ctx.bezierCurveTo(-pw*0.6, -s*innerRatio - pr*0.7,
+                       -pw*0.5, -s*innerRatio - pr*0.3,
+                        0,      -s*innerRatio);
+    ctx.closePath();
+    // Petal gradient: bright tip, darker base
+    const pg = ctx.createLinearGradient(0, -s*innerRatio, 0, -s*innerRatio - pr);
+    pg.addColorStop(0,   petalColor.replace('A)', petalAlpha*0.4 + ')'));
+    pg.addColorStop(0.4, petalColor.replace('A)', petalAlpha*0.85 + ')'));
+    pg.addColorStop(1,   petalColor.replace('A)', petalAlpha + ')'));
+    ctx.fillStyle = pg;
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawBuddhaSilhouette(cx, cy, s) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.fillStyle = '#080508';
+  ctx.shadowBlur = 40 * devicePixelRatio;
+  ctx.shadowColor = 'rgba(255,130,40,0.2)';
+
+  // All drawn as one big composite path for cleaner look
+  // Head
+  ctx.beginPath();
+  ctx.ellipse(0, -s*0.36, s*0.10, s*0.118, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Ushnisha (rounded topknot, not spike)
+  ctx.beginPath();
+  ctx.ellipse(0, -s*0.50, s*0.052, s*0.072, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Neck
+  ctx.beginPath();
+  ctx.ellipse(0, -s*0.255, s*0.038, s*0.038, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Torso — wide, tapering upward
+  ctx.beginPath();
+  ctx.moveTo(-s*0.185, -s*0.22);
+  ctx.bezierCurveTo(-s*0.26, -s*0.05, -s*0.24, s*0.12, -s*0.17, s*0.20);
+  ctx.lineTo(s*0.17, s*0.20);
+  ctx.bezierCurveTo(s*0.24, s*0.12, s*0.26, -s*0.05, s*0.185, -s*0.22);
+  ctx.bezierCurveTo(s*0.11, -s*0.255, -s*0.11, -s*0.255, -s*0.185, -s*0.22);
+  ctx.closePath();
+  ctx.fill();
+
+  // Left arm resting
+  ctx.beginPath();
+  ctx.moveTo(-s*0.185, -s*0.20);
+  ctx.bezierCurveTo(-s*0.32, -s*0.06, -s*0.30, s*0.14, -s*0.21, s*0.20);
+  ctx.bezierCurveTo(-s*0.16, s*0.22, -s*0.12, s*0.14, -s*0.17, s*0.20);
+  ctx.bezierCurveTo(-s*0.20, s*0.08, -s*0.20, -s*0.06, -s*0.175, -s*0.20);
+  ctx.closePath();
+  ctx.fill();
+
+  // Right arm resting
+  ctx.beginPath();
+  ctx.moveTo(s*0.185, -s*0.20);
+  ctx.bezierCurveTo(s*0.32, -s*0.06, s*0.30, s*0.14, s*0.21, s*0.20);
+  ctx.bezierCurveTo(s*0.16, s*0.22, s*0.12, s*0.14, s*0.17, s*0.20);
+  ctx.bezierCurveTo(s*0.20, s*0.08, s*0.20, -s*0.06, s*0.175, -s*0.20);
+  ctx.closePath();
+  ctx.fill();
+
+  // Lap / lotus seat — wide smooth mound
+  ctx.beginPath();
+  ctx.moveTo(-s*0.32, s*0.20);
+  ctx.bezierCurveTo(-s*0.34, s*0.28, -s*0.32, s*0.38, -s*0.22, s*0.40);
+  ctx.bezierCurveTo(-s*0.10, s*0.42, s*0.10, s*0.42, s*0.22, s*0.40);
+  ctx.bezierCurveTo(s*0.32, s*0.38, s*0.34, s*0.28, s*0.32, s*0.20);
+  ctx.bezierCurveTo(s*0.20, s*0.15, -s*0.20, s*0.15, -s*0.32, s*0.20);
+  ctx.closePath();
+  ctx.fill();
+
+  // Feet peeking at base
+  ctx.beginPath();
+  ctx.ellipse(-s*0.14, s*0.41, s*0.10, s*0.035, 0.15, 0, Math.PI*2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(s*0.14, s*0.41, s*0.10, s*0.035, -0.15, 0, Math.PI*2);
+  ctx.fill();
+
+  // Base platform
+  ctx.beginPath();
+  ctx.ellipse(0, s*0.455, s*0.27, s*0.055, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+function drawBuddha() {
+  ctx.clearRect(0,0,W,H);
+
+  const b=bass(), m=mid(), hi=high(), v=vol();
+  const t = tick * 0.007;
+
+  const cx = W * 0.5;
+  const cy = H * 0.50;
+  const s  = Math.min(W, H) * 0.42; // scale off shorter dimension
+
+  // ── Dark warm background ───────────────────────────
+  ctx.fillStyle = '#05020a';
+  ctx.fillRect(0,0,W,H);
+  const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, W*0.65);
+  bg.addColorStop(0,   `rgba(30,10,5,${0.8+b*0.2})`);
+  bg.addColorStop(0.6, `rgba(10,3,2,0.9)`);
+  bg.addColorStop(1,   'rgba(3,1,0,1)');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+
+  // ── Outer aura glow ────────────────────────────────
+  const aHue = (28 + b*50 + t*5) % 360;
+  const auraR = s * (1.4 + v*0.5);
+  const ag = ctx.createRadialGradient(cx, cy-s*0.05, s*0.3, cx, cy-s*0.05, auraR);
+  ag.addColorStop(0,   hsl(aHue, 90, 72, 0.0));
+  ag.addColorStop(0.3, hsl(aHue, 85, 65, 0.10+b*0.15));
+  ag.addColorStop(0.6, hsl((aHue+35)%360, 80, 55, 0.06+v*0.07));
+  ag.addColorStop(1,   'transparent');
+  ctx.fillStyle=ag; ctx.fillRect(0,0,W,H);
+
+  // ── Halo disc behind head ──────────────────────────
+  const haloR = s * (0.55 + b*0.08);
+  const haloG = ctx.createRadialGradient(cx, cy-s*0.28, 0, cx, cy-s*0.28, haloR);
+  haloG.addColorStop(0,   hsl(45+b*20, 95, 92, 0.70+b*0.25));
+  haloG.addColorStop(0.35, hsl(38+b*15, 90, 75, 0.40+b*0.15));
+  haloG.addColorStop(0.7,  hsl(30, 80, 55, 0.10));
+  haloG.addColorStop(1,    'transparent');
+  ctx.fillStyle=haloG;
+  ctx.beginPath(); ctx.arc(cx, cy-s*0.28, haloR, 0, Math.PI*2); ctx.fill();
+
+  // ── Lotus petals (back layer, audio-reactive size+alpha) ──
+  const outerPetalAl = 0.55 + v*0.30 + b*0.15;
+  const outerPetalS  = s * (1.02 + v*0.12 + b*0.08);
+  // Back ring — large, slightly spread
+  drawLotus(cx, cy+s*0.38, outerPetalS, 'hsla(320,85%,65%,A)', outerPetalAl, 12, 0.0);
+  // Front ring — smaller, offset up
+  const innerPetalAl = 0.45 + v*0.25;
+  const innerPetalS  = s * (0.78 + v*0.08 + b*0.06);
+  drawLotus(cx, cy+s*0.38, innerPetalS, 'hsla(340,90%,72%,A)', innerPetalAl, 8, 0.0);
+
+  // ── Aura frequency spikes ──────────────────────────
+  const SPIKES = 220;
+  const innerR = s * 0.48;
+  const outerR = s * (0.95 + b*0.40);
+  ctx.save();
+  ctx.translate(cx, cy - s*0.05);
+  for (let i=0; i<SPIKES; i++) {
+    const angle = (i/SPIKES)*Math.PI*2 - Math.PI/2;
+    const fi  = Math.floor((i/SPIKES)*200);
+    const a   = amp(fi);
+    if (a < 0.02) continue;
+    const spk = innerR + a*(outerR-innerR);
+    const hue = (22+(i/SPIKES)*100+t*10+b*35)%360;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(angle)*innerR, Math.sin(angle)*innerR);
+    ctx.lineTo(Math.cos(angle)*spk,    Math.sin(angle)*spk);
+    ctx.strokeStyle = hsl(hue, 88, 65+a*20, 0.5+a*0.45);
+    ctx.lineWidth   = (0.8+a*2.5)*devicePixelRatio;
+    ctx.shadowBlur  = a*18*devicePixelRatio;
+    ctx.shadowColor = hsl(hue, 92, 70, 0.65);
+    ctx.stroke();
+  }
+  ctx.shadowBlur=0;
+  ctx.restore();
+
+  // ── Buddha silhouette on top ───────────────────────
+  drawBuddhaSilhouette(cx, cy, s);
+
+  // ── Floating particles ─────────────────────────────
+  if (v > 0.12) {
+    for (let i=0, n=Math.floor(v*8); i<n; i++) {
+      const ang = Math.random()*Math.PI*2;
+      const d   = (innerR + Math.random()*(outerR-innerR)) * (0.7+Math.random()*0.6);
+      const px  = cx + Math.cos(ang)*d;
+      const py  = (cy-s*0.05) + Math.sin(ang)*d*0.9;
+      ctx.beginPath();
+      ctx.arc(px, py, (0.5+Math.random()*2)*devicePixelRatio, 0, Math.PI*2);
+      const phue = (25+Math.random()*80)%360;
+      ctx.fillStyle   = hsl(phue, 90, 80, v*0.55);
+      ctx.shadowBlur  = 5*devicePixelRatio;
+      ctx.shadowColor = hsl(phue, 90, 75, 0.7);
+      ctx.fill();
+    }
+    ctx.shadowBlur=0;
+  }
+
+  // ── Ground shadow under platform ──────────────────
+  const platG = ctx.createRadialGradient(cx, cy+s*0.48, 0, cx, cy+s*0.48, s*0.45);
+  platG.addColorStop(0, `rgba(20,5,0,${0.5+b*0.3})`);
+  platG.addColorStop(1, 'transparent');
+  ctx.fillStyle=platG;
+  ctx.beginPath(); ctx.ellipse(cx, cy+s*0.5, s*0.42, s*0.07, 0, 0, Math.PI*2); ctx.fill();
+
+  // Vignette
+  const vg=ctx.createRadialGradient(cx,cy,s*0.5,cx,cy,Math.max(W,H)*0.8);
+  vg.addColorStop(0,'transparent'); vg.addColorStop(1,'rgba(3,1,0,0.75)');
+  ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
 }
 
 // ── Render ───────────────────────────────────────────
 function render() {
-  // Pull fresh FFT data every frame
   if (analyser) analyser.getByteFrequencyData(freqData);
   updateSmoothed();
 
@@ -664,9 +894,9 @@ function render() {
     case 'orbit':  drawOrbit();  break;
     case 'aurora': drawAurora(); break;
     case 'ribbon': drawRibbon(); break;
+    case 'buddha': drawBuddha(); break;
   }
 
-  if (tick % 10 === 0) updateMetrics();
   tick++;
   requestAnimationFrame(render);
 }
